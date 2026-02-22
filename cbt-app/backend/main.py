@@ -52,6 +52,9 @@ def run_session(payload: dict):
         "vector_snapshot": result["tolerance"],
         "report": result["report"]
     }).execute()
+    print("\n--- THERAPIST REPORT ---")
+    print(result["report"])
+    print("------------------------\n")
 
     return result
 
@@ -85,5 +88,6 @@ def get_latest_session(client_id: str):
         "session_id": session["id"],
         "date": session["started_at"]
     }
+
 
 # http://127.0.0.1:8000/session/latest/test-client-001
