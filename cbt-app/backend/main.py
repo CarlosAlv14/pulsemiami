@@ -44,4 +44,46 @@ def run_session(payload: dict):
         "client_response": payload.get("client_response", ""),
         "report": ""
     })
+
+    # Save to database
+    supabase.table("session_runs").insert({
+        "session_plan_id": result["session_plan_id"],
+        "client_id": result["client_id"],
+        "vector_snapshot": result["tolerance"],
+        "report": result["report"]
+    }).execute()
+
     return result
+
+@app.get("/session/latest/{client_id}")
+def get_latest_session(client_id: str):
+    result = supabase.table("session_runs") \
+        .select("*") \
+        .eq("client_id", client_id) \
+        .order("started_at", desc=True) \
+        .limit(1) \
+        .execute()
+
+    if not result.data:
+        return {"message": "No sessions found for this client"}
+
+    session = result.data[0]
+    
+    # Strip markdown formatting
+    import re
+    report = session["report"]
+    report = re.sub(r'#{1,6}\s*', '', report)        # Remove headings
+    report = re.sub(r'\*\*(.*?)\*\*', r'\1', report) # Remove bold
+    report = re.sub(r'\*(.*?)\*', r'\1', report)      # Remove italic
+    report = re.sub(r'\n{3,}', '\n\n', report)        # Clean extra lines
+    report = report.strip()
+
+    return {
+        "client_id": client_id,
+        "report": report,
+        "tolerance": session["vector_snapshot"],
+        "session_id": session["id"],
+        "date": session["started_at"]
+    }
+
+# http://127.0.0.1:8000/session/latest/test-client-001

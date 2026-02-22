@@ -100,7 +100,7 @@ Client response:
 Updated tolerance profile:
 {state["tolerance"]}
 
-Write a brief, clinical summary for the therapist. Note how the client engaged, any signs of difficulty or success, and one recommendation for the next session. Use professional language."""
+Write a brief clinical summary in plain sentences. Do not use any markdown, bullet points, asterisks, or headings. Just write normal paragraphs as if speaking directly to the therapist."""
 
     response = llm.invoke(prompt)
     state["report"] = response.content
