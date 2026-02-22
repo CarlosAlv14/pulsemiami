@@ -1,12 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from dotenv import load_dotenv
 from database import supabase
 from session_graph import session_graph
+import whisper
+import tempfile
 import os
+import re
 
 load_dotenv()
 
 app = FastAPI(title="CBT Therapy Aid API")
+
+whisper_model = whisper.load_model("base")
 
 @app.get("/")
 def root():
@@ -24,6 +29,17 @@ def health():
 def test_db():
     result = supabase.table("therapists").select("*").execute()
     return {"connected": True, "rows": result.data}
+
+@app.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    result = whisper_model.transcribe(tmp_path)
+    os.unlink(tmp_path)
+
+    return {"transcription": result["text"]}
 
 @app.post("/session/run")
 def run_session(payload: dict):
@@ -52,6 +68,7 @@ def run_session(payload: dict):
         "vector_snapshot": result["tolerance"],
         "report": result["report"]
     }).execute()
+
     print("\n--- THERAPIST REPORT ---")
     print(result["report"])
     print("------------------------\n")
@@ -71,14 +88,13 @@ def get_latest_session(client_id: str):
         return {"message": "No sessions found for this client"}
 
     session = result.data[0]
-    
+
     # Strip markdown formatting
-    import re
     report = session["report"]
-    report = re.sub(r'#{1,6}\s*', '', report)        # Remove headings
-    report = re.sub(r'\*\*(.*?)\*\*', r'\1', report) # Remove bold
-    report = re.sub(r'\*(.*?)\*', r'\1', report)      # Remove italic
-    report = re.sub(r'\n{3,}', '\n\n', report)        # Clean extra lines
+    report = re.sub(r'#{1,6}\s*', '', report)
+    report = re.sub(r'\*\*(.*?)\*\*', r'\1', report)
+    report = re.sub(r'\*(.*?)\*', r'\1', report)
+    report = re.sub(r'\n{3,}', '\n\n', report)
     report = report.strip()
 
     return {
@@ -88,6 +104,3 @@ def get_latest_session(client_id: str):
         "session_id": session["id"],
         "date": session["started_at"]
     }
-
-
-# http://127.0.0.1:8000/session/latest/test-client-001
